@@ -11,10 +11,22 @@ module Sequel
       UNIQUE = Sequel::Schema::SQL::UNIQUE
       UNSIGNED = Sequel::Schema::SQL::UNSIGNED
       
-      # Use MySQL specific syntax for rename column, set column type, and
-      # drop index cases.
+      # Use MySQL specific syntax for add column, rename column, set column
+      # type, and drop index cases.
       def alter_table_sql(table, op)
         case op[:op]
+        when :add_column
+          # MySQL doesn't support setting a foreign key in the same statement
+          # as adding a column; we use two statements.
+          "ALTER TABLE #{quote_schema_table(table)} " +
+          if op[:table]
+            column = op.clone
+            column.delete :table
+            "ADD COLUMN #{column_definition_sql(column)}" +
+              column_references_sql(op).sub(', ', '; ADD ')
+          else
+            "ADD COLUMN #{column_definition_sql(op)}"
+          end
         when :rename_column
           "ALTER TABLE #{quote_schema_table(table)} CHANGE COLUMN #{quote_identifier(op[:name])} #{quote_identifier(op[:new_name])} #{type_literal(op)}"
         when :set_column_type
