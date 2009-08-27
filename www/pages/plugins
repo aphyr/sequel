@@ -1,18 +1,69 @@
 <h2>Sequel::Model Plugins</h2>
 
-<p>Sequel::Model has a very flexible and standardized plugin architecture, see the <a href="/rdoc/classes/Sequel/Plugins.html">RDoc</a>. Here is a list of plugins that members of the Sequel community have developed:</p>
+<p>Sequel::Model has a very flexible and standardized plugin architecture, see the <a href="rdoc/classes/Sequel/Plugins.html">RDoc</a>. Here is a list of plugins that members of the Sequel community have developed:</p>
+
+<h3>Built-in Plugins</h3>
 
 <ul>
-<li><a href='http://github.com/boof/sequel_notnaughty'>sequel_notnaughty</a>: A port of the NotNaughty validation framework to Sequel.</li>
-<li><a href='http://github.com/bricooke/sequel_timestamped'>sequel_timestamped</a>: Adds support for autotimestamping created_at and updated_at columns if they exist.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/AssociationProxies.html">association_proxies</a>: Changes the *_to_many association method to return a proxy instead of an array of objects.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/BooleanReaders.html">boolean_readers</a>: Adds attribute? methods for all boolean columns.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/Caching.html">caching</a>: Supports caching primary key lookups of model objects to any object that supports the Ruby-Memcache API.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/HookClassMethods.html">hook_class_methods</a>: Adds backwards compatiblity for the legacy class-level hook methods (e.g. before_save :do_something).</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/IdentityMap.html">identity_map</a>: Allows you to create temporary identity maps which ensure a 1-1 correspondence of model objects to database rows.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/InstanceHooks.html">instance_hooks</a>: Allow you to add hooks to specific model instances.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/LazyAttributes.html">lazy_attributes</a>: Allows you to set some attributes that should not be loaded by default, but only loaded when an object requests them.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/ManyThroughMany.html">many_through_many</a>: Allow you to create an association to multiple objects through multiple join tables.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/NestedAttributes.html">nested_attributes</a>: Allow you to modified associated objects directly through a model object, similar to ActiveRecord's Nested Attributes.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/Schema.html">schema</a>: Adds backwards compatibility for Model.set_schema and Model.create_table.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/Serialization.html">serialization</a>: Supports serializing column values and storing them as either marshal, yaml, or json in the database.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/SingleTableInheritance.html">single_table_inheritance</a>: Sets up STI by making subclasses of this model only load rows that match the class, and returning instances of the subclasses.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/TacticalEagerLoading.html">tactical_eager_loading</a>: Allows you to eagerly load an association for all objects retreived from the same dataset when calling the association method on any of the objects in the dataset.</li>
+<li><a href='rdoc-plugins/classes/Sequel/Plugins/Timestamps.html'>timestamps</a>: Creates hooks for automatically setting create and update timestamps.</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/ValidationClassMethods.html">validation_class_methods</a>: Adds backwards compatibility for the legacy class-level validation methods (e.g. validates_presence_of :column).</li>
+<li><a href="rdoc-plugins/classes/Sequel/Plugins/ValidationHelpers.html">validation_helpers</a>: The preferred default validations plugin, which uses instance-level methods.</li>
 </ul>
 
-<h2>Other Sequel Extensions</h2>
+<h3>External Plugins</h3>
 
 <ul>
+<li><a href='http://github.com/sbfaulkner/sequel_cascading'>sequel_cascading</a>: Destroy associated records, nullify foreign keys or raise an exception when destroying a record.</li>
+<li><a href='http://github.com/sbfaulkner/sequel_container'>sequel_container</a>: Contained documents (i.e. attachments) for models.</li>
+<li><a href='http://github.com/pkondzior/sequel_nested_set'>sequel_nested_set</a>: Nested set implementation, ported from the Awesome Nested Set Active Record plugin.</li>
+<li><a href='http://github.com/boof/sequel_notnaughty'>sequel_notnaughty</a>: Port of the NotNaughty validation framework.</li>
+<li><a href='http://github.com/aemadrid/sequel_orderable'>sequel_orderable</a>: Allows for model instances to be part of an ordered list, based on a 'position' field in the database.</li>
+<li><a href='http://github.com/jackdempsey/sequel_polymorphic'>sequel_polymorphic</a>: Lets you easily create polymorphic associations.</li>
+<li><a href='http://github.com/jackdempsey/sequel_taggable'>sequel_taggable</a>: Allows easily adding tags to any model.</li>
+</ul>
+
+<h2>Sequel Extensions</h2>
+
+<p>Extensions are modification or additions to Sequel that affect core Sequel, not just Sequel::Model.</p>
+
+<h3>Built-in Extensions</h3>
+
+<ul>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/blank_rb.html">blank</a>: Adds blank? instance methods to all objects.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/inflector_rb.html">inflector</a>: Adds instance-level inflection methods to String.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/migration_rb.html">migration</a>: Adds Migration and Migrator classes for easily migrating the database schema forward or reverting to a previous version.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/pagination_rb.html">pagination</a>: Adds Dataset#paginate for easier pagination of datasets.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/pretty_table_rb.html">pretty_table</a>: Adds Dataset#print for printing a dataset as a simple plain-text table.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/query_rb.html">query</a>: Adds Dataset#query for a different interface to creating queries that doesn't use method chaining.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/schema_dumper_rb.html">schema_dumper</a>: Adds Database#dump_schema_migration and related methods for dumping the schema of the database as a migration that can be restored on other databases.</li>
+<li><a href="rdoc-plugins/files/lib/sequel/extensions/string_date_time_rb.html">string_date_time</a>: Adds instance methods to String for converting the string into a Date/Time/DateTime.</li>
+</ul>
+
+<h3>External Extensions</h3>
+
+<ul>
+<li><a href='http://github.com/jeremyevans/fixture_dependencies'>fixture_dependencies</a>: YAML fixture loader that handles dependencies/associated objects, respecting foreign key constraints.</li>
+<li><a href='http://github.com/pk/merb_sequel'>merb_sequel</a>: Merb plugin that provides support for Sequel models.</li>
+<li><a href='http://github.com/pusewicz/rails_sequel/'>rails-sequel</a>: Rails plugin that allows you to use Sequel instead of ActiveRecord.</li>
+<li><a href='http://github.com/openhood/rspec_sequel_matchers'>rspec_sequel_matchers</a>: RSpec matchers for Sequel validations, associations, and columns.</li>
+<li><a href='http://github.com/gyordanov/sequel_extjs'>sequel_extjs</a>: Generates JSON from datasets that is consumable by the ExtJS JsonStore.</li>
 <li><a href='http://github.com/jeremyevans/sequel_postgresql_triggers'>sequel_postgresql_triggers</a>: Database enforced timestamps, immutable columns, and counter/sum caches.</li>
+<li><a href='http://github.com/jsvd/sequel_vectorized'>sequel_vectorized</a>: Allows Sequel::Dataset to be exported as an Hash of Arrays and NArrays.</li>
 </ul>
 
 <h3>Submitting Your Plugin/Extension</h3>
 
-<p>If you have created a Sequel plugin/extension and would like to list it here, please submit a request to code AT jeremyevans DOT net.</p>
+<p>If you have created a Sequel plugin/extension and would like to list it here, please submit a request to code AT jeremyevans DOT net, or send a pull request via github.</p>

@@ -4,7 +4,7 @@ Sequel offers unparalleled flexibility when it comes to filtering records. You c
 
 == Filtering using a custom filter string
 
-If you do not wish to lose control over your SQL WHERE clauses, you can just supply it to the dataset's #filter method:
+If you wish to write your SQL by hand, you can just supply it to the dataset's #filter method:
 
   items.filter('x < 10').sql
   #=> "SELECT * FROM items WHERE x < 10"
@@ -14,35 +14,11 @@ In order to prevent SQL injection, you can replace literal values with question 
   items.filter('category = ?', 'ruby').sql
   #=> "SELECT * FROM items WHERE category = 'ruby'"
 
-== An aside: column references in Sequel
-
-Sequel expects column names to be specified using symbols. In addition, tuples always use symbols as their keys. This allows you to freely mix literal values and column references. For example, the two following lines produce equivalent SQL:
-
-  items.filter(:x => 1) #=> "SELECT * FROM items WHERE (x = 1)"
-  items.filter(1 => :x) #=> "SELECT * FROM items WHERE (1 = x)"
-
-=== Qualifying column names
-
-Column references can be qualified by using the double underscore special notation :table__column:
-
-  items.literal(:items__price) #=> "items.price"
-
-=== Column aliases
-
-You can also alias columns by using the triple undersecore special notation :column___alias or :table__column___alias:
-
-  items.literal(:price___p) #=> "price AS p"
-  items.literal(:items__price___p) #=> "items.price AS p"
-
-Another way to alias columns is to use the #AS method:
-
-  items.literal(:price.as(:p)) #=> "price AS p"
-
 === Specifying SQL functions
 
-Sequel also allows you to specify functions by using the Symbol#[] method:
+Sequel also allows you to specify functions by using the Symbol#sql_function method (and the Symbol#[] method on ruby 1.8):
 
-  items.literal(:avg[:price]) #=> "avg(price)"
+  items.literal(:avg.sql_function(:price)) #=> "avg(price)"
 
 == Filtering using a hash
 
@@ -76,12 +52,12 @@ Ranges (both inclusive and exclusive) can also be used:
 
 == Filtering using expressions
 
-New in Sequel 2.0 is the ability to use ruby expressions directly in the call to filter, without using a block:
+Sequel allows you to use ruby expressions directly in the call to filter:
 
-  items.filter(:price < 100).sql
-  #=> "SELECT * FROM items WHERE (price < 100) 
+  items.filter(:price * 2 < 50).sql
+  #=> "SELECT * FROM items WHERE ((price * 2) < 50) 
 
-This works for the standard inequality and arithmetic operators:
+This works for the standard inequality and arithmetic operators (though you can't use the inequality operators directly on a symbol in ruby 1.9):
 
   items.filter(:price + 100 < 200).sql
   #=> "SELECT * FROM items WHERE ((price + 100) < 200) 
@@ -123,7 +99,7 @@ You can use the negation operator (~) in most cases:
   items.filter(~{:category => 'ruby'}).sql
   #=> "SELECT * FROM items WHERE (category != 'ruby')"
 
-  items.filter {~:active}.sql
+  items.filter{~:active}.sql
   #=> "SELECT * FROM items WHERE NOT active"
 
   items.filter(~(:price / 100 >= 200)).sql
@@ -133,13 +109,13 @@ You can use the negation operator (~) in most cases:
 
 You can also compare against other columns:
 
-  items.filter(:credit > :debit).sql
+  items.filter{|o| o.credit > :debit}.sql
   #=> "SELECT * FROM items WHERE (credit > debit)
 
 Or against SQL functions:
 
-  items.filter(:price < :max[:price] + 100).sql
-  #=> "SELECT * FROM items WHERE (price < (max(price) + 100))"
+  items.filter{|o| :price - 100 < o.max(:price)}.sql
+  #=> "SELECT * FROM items WHERE ((price - 100) < max(price))"
 
 == String search functions
 
@@ -175,8 +151,8 @@ Array#sql_string_join also takes a join argument:
 
 One of the best features of Sequel is the ability to use datasets as sub-queries. Sub-queries can be very useful for filtering records, and many times provide a simpler alternative to table joins. Sub-queries can be used in all forms of filters:
 
-  refs = consumer_refs.filter(:logged_in => true).select(:consumer_id)
+  refs = consumer_refs.filter(:logged_in).select(:consumer_id)
   consumers.filter(:id => refs).sql
-  #=> "SELECT * FROM consumers WHERE (id IN (SELECT consumer_id FROM consumer_refs WHERE (logged_in = 't')))"
+  #=> "SELECT * FROM consumers WHERE (id IN (SELECT consumer_id FROM consumer_refs WHERE logged_in))"
 
 Note that if you compare against a sub-query, you must select a single column in the sub-query.

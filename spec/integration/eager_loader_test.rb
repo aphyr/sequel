@@ -2,7 +2,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper.rb')
 
 describe "Eagerly loading a tree structure" do
   before do
-    INTEGRATION_DB.instance_variable_set(:@schemas, nil)
+    INTEGRATION_DB.instance_variable_set(:@schemas, {})
     INTEGRATION_DB.create_table!(:nodes) do
       primary_key :id
       foreign_key :parent_id, :nodes
@@ -69,7 +69,7 @@ describe "Eagerly loading a tree structure" do
     clear_sqls
   end
   after do
-    Node.drop_table
+    INTEGRATION_DB.drop_table :nodes
     Object.send(:remove_const, :Node)
   end
 
@@ -138,31 +138,23 @@ describe "Association Extensions" do
   before do
     module ::FindOrCreate
       def find_or_create(vals)
-        # Exploits the fact that Sequel filters are ruby objects that
-        # can be introspected.
-        author_id = @opts[:where].args[1]
-        first(vals) || \
-          @opts[:models][nil].create(vals.merge(:author_id=>author_id))
+        first(vals) || model.create(vals.merge(:author_id=>model_object.pk))
       end 
+      def find_or_create_by_name(name)
+        first(:name=>name) || model.create(:name=>name, :author_id=>model_object.pk)
+      end
     end
-    INTEGRATION_DB.instance_variable_set(:@schemas, nil)
+    INTEGRATION_DB.instance_variable_set(:@schemas, {})
     INTEGRATION_DB.create_table!(:authors) do
       primary_key :id
     end
     class ::Author < Sequel::Model
-      one_to_many :authorships, :extend=>FindOrCreate, :dataset=>(proc do
-        key = pk
-        ds = Authorship.filter(:author_id=>key)
-        ds.meta_def(:find_or_create_by_name) do |name|
-          first(:name=>name) || Authorship.create(:name=>name, :author_id=>key)
-        end 
-        ds  
-      end)
+      one_to_many :authorships, :extend=>FindOrCreate
     end
     INTEGRATION_DB.create_table!(:authorships) do
       primary_key :id
       foreign_key :author_id, :authors
-      text :name
+      String :name
     end
     class ::Authorship < Sequel::Model
       many_to_one :author
@@ -171,46 +163,45 @@ describe "Association Extensions" do
     clear_sqls
   end
   after do
-    Authorship.drop_table
-    Author.drop_table
+    INTEGRATION_DB.drop_table :authorships, :authors
     Object.send(:remove_const, :Author)
     Object.send(:remove_const, :Authorship)
   end
 
   it "should allow methods to be called on the dataset method" do
     Authorship.count.should == 0
-    sqls_should_be('SELECT COUNT(*) FROM authorships LIMIT 1')
+    sqls_should_be('SELECT COUNT(*) AS \'count\' FROM authorships LIMIT 1')
     authorship = @author.authorships_dataset.find_or_create_by_name('Bob')
-    sqls_should_be("SELECT * FROM authorships WHERE ((author_id = 1) AND (name = 'Bob')) LIMIT 1",
+    sqls_should_be("SELECT * FROM authorships WHERE ((authorships.author_id = 1) AND (name = 'Bob')) LIMIT 1",
       /INSERT INTO authorships \((author_id, name|name, author_id)\) VALUES \((1, 'Bob'|'Bob', 1)\)/,
       "SELECT * FROM authorships WHERE (id = 1) LIMIT 1")
     Authorship.count.should == 1
     Authorship.first.should == authorship
-    sqls_should_be('SELECT COUNT(*) FROM authorships LIMIT 1', "SELECT * FROM authorships LIMIT 1")
+    sqls_should_be('SELECT COUNT(*) AS \'count\' FROM authorships LIMIT 1', "SELECT * FROM authorships LIMIT 1")
     authorship.name.should == 'Bob'
     authorship.author_id.should == @author.id
     @author.authorships_dataset.find_or_create_by_name('Bob').should == authorship
-    sqls_should_be("SELECT * FROM authorships WHERE ((author_id = 1) AND (name = 'Bob')) LIMIT 1")
+    sqls_should_be("SELECT * FROM authorships WHERE ((authorships.author_id = 1) AND (name = 'Bob')) LIMIT 1")
     Authorship.count.should == 1
-    sqls_should_be('SELECT COUNT(*) FROM authorships LIMIT 1')
+    sqls_should_be('SELECT COUNT(*) AS \'count\' FROM authorships LIMIT 1')
     authorship2 = @author.authorships_dataset.find_or_create(:name=>'Jim')
-    sqls_should_be("SELECT * FROM authorships WHERE ((author_id = 1) AND (name = 'Jim')) LIMIT 1",
+    sqls_should_be("SELECT * FROM authorships WHERE ((authorships.author_id = 1) AND (name = 'Jim')) LIMIT 1",
       /INSERT INTO authorships \((author_id, name|name, author_id)\) VALUES \((1, 'Jim'|'Jim', 1)\)/,
       "SELECT * FROM authorships WHERE (id = 2) LIMIT 1")
     Authorship.count.should == 2
-    sqls_should_be('SELECT COUNT(*) FROM authorships LIMIT 1')
+    sqls_should_be('SELECT COUNT(*) AS \'count\' FROM authorships LIMIT 1')
     Authorship.order(:name).map(:name).should == ['Bob', 'Jim']
     sqls_should_be('SELECT * FROM authorships ORDER BY name')
     authorship2.name.should == 'Jim'
     authorship2.author_id.should == @author.id
     @author.authorships_dataset.find_or_create(:name=>'Jim').should == authorship2
-    sqls_should_be("SELECT * FROM authorships WHERE ((author_id = 1) AND (name = 'Jim')) LIMIT 1")
+    sqls_should_be("SELECT * FROM authorships WHERE ((authorships.author_id = 1) AND (name = 'Jim')) LIMIT 1")
   end
 end
 
 describe "has_many :through has_many and has_one :through belongs_to" do
   before do
-    INTEGRATION_DB.instance_variable_set(:@schemas, nil)
+    INTEGRATION_DB.instance_variable_set(:@schemas, {})
     INTEGRATION_DB.create_table!(:firms) do
       primary_key :id
     end
@@ -291,9 +282,7 @@ describe "has_many :through has_many and has_one :through belongs_to" do
     clear_sqls
   end
   after do
-    Invoice.drop_table
-    Client.drop_table
-    Firm.drop_table
+    INTEGRATION_DB.drop_table :invoices, :clients, :firms
     Object.send(:remove_const, :Firm)
     Object.send(:remove_const, :Client)
     Object.send(:remove_const, :Invoice)
@@ -372,16 +361,17 @@ end
 
 describe "Polymorphic Associations" do
   before do
-    INTEGRATION_DB.instance_variable_set(:@schemas, nil)
+    INTEGRATION_DB.instance_variable_set(:@schemas, {})
     INTEGRATION_DB.create_table!(:assets) do
       primary_key :id
-      integer :attachable_id
-      text :attachable_type
+      Integer :attachable_id
+      String :attachable_type
     end
     class ::Asset < Sequel::Model
+      m = method(:constantize)
       many_to_one :attachable, :reciprocal=>:assets, \
         :dataset=>(proc do
-          klass = attachable_type.constantize
+          klass = m.call(attachable_type)
           klass.filter(klass.primary_key=>attachable_id)
         end), \
         :eager_loader=>(proc do |key_hash, assets, associations|
@@ -391,7 +381,7 @@ describe "Polymorphic Associations" do
             ((id_map[asset.attachable_type] ||= {})[asset.attachable_id] ||= []) << asset
           end 
           id_map.each do |klass_name, id_map|
-            klass = klass_name.constantize
+            klass = m.call(klass_name)
             klass.filter(klass.primary_key=>id_map.keys).all do |attach|
               id_map[attach.pk].each do |asset|
                 asset.associations[:attachable] = attach
@@ -412,7 +402,7 @@ describe "Polymorphic Associations" do
       primary_key :id
     end
     class ::Post < Sequel::Model
-      one_to_many :assets, :key=>:attachable_id do |ds|
+      one_to_many :assets, :key=>:attachable_id, :reciprocal=>:attachable do |ds|
         ds.filter(:attachable_type=>'Post')
       end 
       
@@ -438,7 +428,7 @@ describe "Polymorphic Associations" do
       primary_key :id
     end
     class ::Note < Sequel::Model
-      one_to_many :assets, :key=>:attachable_id do |ds|
+      one_to_many :assets, :key=>:attachable_id, :reciprocal=>:attachable do |ds|
         ds.filter(:attachable_type=>'Note')
       end 
       
@@ -469,9 +459,7 @@ describe "Polymorphic Associations" do
     clear_sqls
   end
   after do
-    Asset.drop_table
-    Post.drop_table
-    Note.drop_table
+    INTEGRATION_DB.drop_table :assets, :posts, :notes
     Object.send(:remove_const, :Asset)
     Object.send(:remove_const, :Post)
     Object.send(:remove_const, :Note)
@@ -545,10 +533,10 @@ end
 
 describe "many_to_one/one_to_many not referencing primary key" do
   before do
-    INTEGRATION_DB.instance_variable_set(:@schemas, nil)
+    INTEGRATION_DB.instance_variable_set(:@schemas, {})
     INTEGRATION_DB.create_table!(:clients) do
       primary_key :id
-      text :name
+      String :name
     end
     class ::Client < Sequel::Model
       one_to_many :invoices, :reciprocal=>:client, \
@@ -582,7 +570,7 @@ describe "many_to_one/one_to_many not referencing primary key" do
   
     INTEGRATION_DB.create_table!(:invoices) do
       primary_key :id
-      text :client_name
+      String :client_name
     end
     class ::Invoice < Sequel::Model
       many_to_one :client, :key=>:client_name, \
@@ -609,8 +597,7 @@ describe "many_to_one/one_to_many not referencing primary key" do
     clear_sqls
   end
   after do
-    Invoice.drop_table
-    Client.drop_table
+    INTEGRATION_DB.drop_table :invoices, :clients
     Object.send(:remove_const, :Client)
     Object.send(:remove_const, :Invoice)
   end
@@ -692,5 +679,66 @@ describe "many_to_one/one_to_many not referencing primary key" do
     @invoice1.client_name.should == nil
     @invoice2.refresh.client.should == nil
     @invoice2.client_name.should == nil
+  end
+end
+
+describe "statistics associations" do
+  before do
+    INTEGRATION_DB.create_table!(:projects) do
+      primary_key :id
+      String :name
+    end
+    class ::Project < Sequel::Model
+      many_to_one :ticket_hours, :read_only=>true, :key=>:id,
+       :dataset=>proc{Ticket.filter(:project_id=>id).select{sum(hours).as(hours)}},
+       :eager_loader=>(proc do |kh, projects, a|
+        projects.each{|p| p.associations[:ticket_hours] = nil}
+        Ticket.filter(:project_id=>kh[:id].keys).
+         group(:project_id).
+         select{[project_id.as(project_id), sum(hours).as(hours)]}.
+         all do |t|
+          p = kh[:id][t.values.delete(:project_id)].first
+          p.associations[:ticket_hours] = t
+         end
+       end)  
+      def ticket_hours
+        if s = super
+          s[:hours]
+        end
+      end 
+    end 
+
+    INTEGRATION_DB.create_table!(:tickets) do
+      primary_key :id
+      foreign_key :project_id, :projects
+      Integer :hours
+    end
+    class ::Ticket < Sequel::Model
+      many_to_one :project
+    end
+
+    @project1 = Project.create(:name=>'X')
+    @project2 = Project.create(:name=>'Y')
+    @ticket1 = Ticket.create(:project=>@project1, :hours=>1)
+    @ticket2 = Ticket.create(:project=>@project1, :hours=>10)
+    @ticket3 = Ticket.create(:project=>@project2, :hours=>2)
+    @ticket4 = Ticket.create(:project=>@project2, :hours=>20)
+    clear_sqls
+  end
+  after do
+    INTEGRATION_DB.drop_table :tickets, :projects
+    Object.send(:remove_const, :Project)
+    Object.send(:remove_const, :Ticket)
+  end
+
+  it "should give the correct sum of ticket hours for each project" do
+    @project1.ticket_hours.to_i.should == 11
+    @project2.ticket_hours.to_i.should == 22
+  end
+
+  it "should give the correct sum of ticket hours for each project when eager loading" do
+    p1, p2 = Project.order(:name).eager(:ticket_hours).all
+    p1.ticket_hours.to_i.should == 11
+    p2.ticket_hours.to_i.should == 22
   end
 end

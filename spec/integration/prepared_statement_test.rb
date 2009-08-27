@@ -49,9 +49,9 @@ describe "Prepared Statements and Bound Arguments" do
   end
 
   specify "should support bound variables with insert" do
-    @ds.call(:insert, {:n=>20, :i=>100}, :id=>@ds.ba(:$i), :number=>@ds.ba(:$n))
+    @ds.call(:insert, {:n=>20}, :number=>@ds.ba(:$n))
     @ds.count.should == 2
-    @ds.order(:id).all.should == [{:id=>1, :number=>10}, {:id=>100, :number=>20}]
+    @ds.order(:id).map(:number).should == [10, 20]
   end
 
   specify "should have insert return primary key value when using bound arguments" do
@@ -76,7 +76,7 @@ describe "Prepared Statements and Bound Arguments" do
     INTEGRATION_DB.call(:select_n, :n=>10).should == [{:id=>1, :number=>10}]
     @ds.filter(:number=>@ds.ba(:$n)).prepare(:first, :select_n)
     INTEGRATION_DB.call(:select_n, :n=>10).should == {:id=>1, :number=>10}
-    if INTEGRATION_DB.uri =~ /jdbc:sqlite:/
+    if INTEGRATION_DB.class.adapter_scheme == :jdbc and INTEGRATION_DB.database_type == :sqlite
       # Work around for open prepared statements on a table not allowing the
       # dropping of a table when using SQLite over JDBC
       INTEGRATION_DB.synchronize{|c| c.prepared_statements[:select_n][1].close}
@@ -84,10 +84,10 @@ describe "Prepared Statements and Bound Arguments" do
   end
 
   specify "should support prepared statements with insert" do
-    @ds.prepare(:insert, :insert_n, :id=>@ds.ba(:$i), :number=>@ds.ba(:$n))
-    INTEGRATION_DB.call(:insert_n, :n=>20, :i=>100)
+    @ds.prepare(:insert, :insert_n, :number=>@ds.ba(:$n))
+    INTEGRATION_DB.call(:insert_n, :n=>20)
     @ds.count.should == 2
-    @ds.order(:id).all.should == [{:id=>1, :number=>10}, {:id=>100, :number=>20}]
+    @ds.order(:id).map(:number).should == [10, 20]
   end
 
   specify "should have insert return primary key value when using prepared statements" do
@@ -121,7 +121,7 @@ describe "Prepared Statements and Bound Arguments" do
     INTEGRATION_DB.call(:select_n, :n=>10).should == [@c.load(:id=>1, :number=>10)]
     @c.filter(:number=>@ds.ba(:$n)).prepare(:first, :select_n)
     INTEGRATION_DB.call(:select_n, :n=>10).should == @c.load(:id=>1, :number=>10)
-    if INTEGRATION_DB.uri =~ /jdbc:sqlite:/
+    if INTEGRATION_DB.class.adapter_scheme == :jdbc and INTEGRATION_DB.database_type == :sqlite
       # Work around for open prepared statements on a table not allowing the
       # dropping of a table when using SQLite over JDBC
       INTEGRATION_DB.synchronize{|c| c.prepared_statements[:select_n][1].close}

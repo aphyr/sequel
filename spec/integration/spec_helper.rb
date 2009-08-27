@@ -1,22 +1,37 @@
 require 'rubygems'
+require 'logger'
 unless Object.const_defined?('Sequel')
   $:.unshift(File.join(File.dirname(__FILE__), "../../lib/"))
   require 'sequel'
 end
 begin
-  require File.join(File.dirname(__FILE__), '../spec_config.rb')
+  require File.join(File.dirname(File.dirname(__FILE__)), 'spec_config.rb') unless defined?(INTEGRATION_DB)
 rescue LoadError
 end
+
+Sequel::Model.use_transactions = false
 
 $sqls = []
 def clear_sqls
   $sqls.clear
 end 
 
+class Spec::Example::ExampleGroup
+  def log
+    begin
+      INTEGRATION_DB.loggers << Logger.new(STDOUT)
+      yield
+    ensure
+     INTEGRATION_DB.loggers.clear
+    end
+  end
+end
+
 if defined?(INTEGRATION_DB) || defined?(INTEGRATION_URL) || ENV['SEQUEL_INTEGRATION_URL']
   unless defined?(INTEGRATION_DB)
     url = defined?(INTEGRATION_URL) ? INTEGRATION_URL : ENV['SEQUEL_INTEGRATION_URL']
     INTEGRATION_DB = Sequel.connect(url)
+    #INTEGRATION_DB.instance_variable_set(:@server_version, 80100)
   end
   class Spec::Example::ExampleGroup
     def sqls_should_be(*args)

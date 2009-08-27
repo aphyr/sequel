@@ -3,6 +3,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper.rb')
 unless defined?(INFORMIX_DB)
   INFORMIX_DB = Sequel.connect('informix://localhost/mydb')
 end
+INTEGRATION_DB = INFORMIX_DB unless defined?(INTEGRATION_DB)
 
 if INFORMIX_DB.table_exists?(:test)
   INFORMIX_DB.drop_table :test
@@ -24,7 +25,7 @@ context "A Informix database" do
 end
 
 context "A Informix dataset" do
-  setup do
+  before do
     @d = INFORMIX_DB[:test]
     @d.delete # remove all records
   end
